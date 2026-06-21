@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pathwise — Plot your decision, don't guess it</title>
+<meta name="description" content="A decision instrument for life's forked roads. Model tradeoffs across time, see what's hidden, decide for yourself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PATHWISE — Design Tokens
+   ============================================================
+   Metaphor: a navigation instrument, not a chatbot. Two paths
+   are "flight lines" plotted across a shared timeline track.
+   Deliberately avoiding cream+serif+terracotta editorial cliché
+   by pairing instrument-mono with humanist sans, and using a
+   chart/track layout instead of magazine columns.
+   ============================================================ */
+:root {
+  --ink:        #1B1B18;
+  --paper:      #FAF7F0;
+  --paper-dim:  #F0ECE2;
+  --line-a:     #C65D3B; /* path A — terracotta, used only as a data color */
+  --line-b:     #3A5A50; /* path B — deep moss, used only as a data color */
+  --stone:      #8B8378;
+  --stone-pale: #D8D2C4;
+  --conf-high:  #1B1B18;
+  --conf-med:   #6B6458;
+  --conf-low:   #ABA493;
+  --danger:     #B23A2E;
+  --radius:     2px;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+a { color: inherit; }
+button { font-family: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* ---------- Header / Nav ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(250, 247, 240, 0.92);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--stone-pale);
+}
+.topbar-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px; max-width: 1080px; margin: 0 auto;
+}
+.brand { display: flex; align-items: baseline; gap: 8px; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
+.brand .mark { font-family: var(--mono); font-size: 13px; color: var(--line-a); font-weight: 600; }
+.topbar-meta { font-family: var(--mono); font-size: 11px; color: var(--stone); letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* ---------- Hero ---------- */
+.hero {
+  padding: 72px 0 56px;
+  border-bottom: 1px solid var(--stone-pale);
+  position: relative;
+}
+.hero-eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--stone); margin-bottom: 18px; display: flex; align-items: center; gap: 10px;
+}
+.hero-eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-a); display: inline-block; }
+.hero h1 {
+  font-size: clamp(34px, 5.4vw, 58px);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  font-weight: 800;
+  margin: 0 0 22px;
+  max-width: 760px;
+}
+.hero h1 em {
+  font-style: normal;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--line-a);
+  font-size: 0.62em;
+  display: inline-block;
+  vertical-align: middle;
+  letter-spacing: 0;
+}
+.hero p.lede {
+  font-size: 18px; color: #4a4640; max-width: 560px; margin: 0 0 32px;
+}
+.hero-actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.btn {
+  font-family: var(--sans); font-weight: 700; font-size: 15px;
+  padding: 14px 26px; border-radius: var(--radius); border: 1.5px solid var(--ink);
+  background: var(--ink); color: var(--paper);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.btn:hover { background: #000; transform: translateY(-1px); }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn.ghost:hover { background: var(--ink); color: var(--paper); }
+.btn-sm { padding: 9px 16px; font-size: 13px; }
+
+/* ---------- Section scaffolding ---------- */
+section { padding: 56px 0; }
+.section-head { margin-bottom: 32px; }
+.section-tag {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--stone); margin-bottom: 10px;
+}
+.section-head h2 { font-size: 28px; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
+.section-head .sub { color: #5b564c; font-size: 15.5px; max-width: 620px; }
+
+/* ---------- Step indicator ---------- */
+.steps {
+  display: flex; gap: 0; margin-bottom: 40px; border: 1px solid var(--stone-pale); border-radius: var(--radius);
+  overflow: hidden; font-family: var(--mono); font-size: 12px;
+}
+.step {
+  flex: 1; padding: 12px 14px; text-align: center; color: var(--stone);
+  border-right: 1px solid var(--stone-pale); position: relative; transition: color 0.2s, background 0.2s;
+}
+.step:last-child { border-right: none; }
+.step.active { color: var(--ink); background: var(--paper-dim); font-weight: 600; }
+.step.done { color: var(--ink); }
+.step .num { display: block; font-size: 10px; opacity: 0.6; margin-bottom: 2px; }
+
+/* ---------- Setup form ---------- */
+.panel {
+  background: #fff; border: 1px solid var(--stone-pale); border-radius: var(--radius); padding: 28px;
+}
+.path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px; }
+@media (max-width: 720px) { .path-grid { grid-template-columns: 1fr; } }
+.path-pick { border: 1.5px solid var(--stone-pale); border-radius: var(--radius); padding: 18px; }
+.path-pick > label.title {
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--stone); display: block; margin-bottom: 10px;
+}
+select {
+  width: 100%; padding: 11px 12px; font-family: var(--sans); font-size: 15px; font-weight: 600;
+  border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--paper); color: var(--ink);
+  margin-bottom: 14px; appearance: none;
+}
+.param-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 13.5px; }
+.param-row label { color: #4a4640; flex: 1; }
+.param-row input[type="number"], .param-row input[type="range"] {
+  font-family: var(--mono); font-size: 13px; padding: 6px 8px; width: 110px;
+  border: 1px solid var(--stone-pale); border-radius: var(--radius); background: var(--paper-dim);
+}
+.param-row input[type="range"] { width: 120px; padding: 0; }
+
+.context-block { margin-top: 24px; }
+.context-block label.title {
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--stone); display: block; margin-bottom: 12px;
+}
+textarea {
+  width: 100%; min-height: 90px; padding: 12px; font-family: var(--sans); font-size: 14.5px;
+  border: 1.5px solid var(--stone-pale); border-radius: var(--radius); background: var(--paper-dim); resize: vertical;
+}
+.toggle-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.chip {
+  font-family: var(--mono); font-size: 12px; padding: 8px 14px; border: 1.5px solid var(--stone-pale);
+  border-radius: 20px; background: var(--paper); color: var(--stone); transition: all 0.15s;
+}
+.chip.active { border-color: var(--ink); color: var(--ink); background: var(--paper-dim); font-weight: 600; }
+
+.weight-block { margin-top: 24px; }
+.weight-block label.title {
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--stone); display: block; margin-bottom: 12px;
+}
+.weight-row { display: grid; grid-template-columns: 140px 1fr 30px; align-items: center; gap: 14px; margin-bottom: 12px; font-size: 13.5px; }
+.weight-row input[type="range"] { width: 100%; accent-color: var(--ink); }
+.weight-row .wval { font-family: var(--mono); text-align: right; color: var(--stone); }
+
+.run-row { margin-top: 28px; display: flex; align-items: center; gap: 16px; }
+.api-key-toggle { font-family: var(--mono); font-size: 12px; color: var(--stone); display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.api-key-field { display: none; margin-top: 12px; }
+.api-key-field.show { display: block; }
+.api-key-field input { width: 100%; padding: 10px 12px; font-family: var(--mono); font-size: 12.5px; border: 1px solid var(--stone-pale); border-radius: var(--radius); background: var(--paper-dim); }
+.api-key-field p { font-size: 12px; color: var(--stone); margin: 6px 0 0; }
+
+/* ---------- Results: the flight-path chart ---------- */
+.results { display: none; }
+.results.show { display: block; }
+
+.lean-banner {
+  border: 1.5px solid var(--ink); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 36px;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  background: var(--paper-dim);
+}
+.lean-banner .lean-text { font-size: 16px; font-weight: 600; max-width: 600px; }
+.lean-banner .lean-text .strength-tag {
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  background: var(--ink); color: var(--paper); padding: 3px 9px; border-radius: 12px; margin-left: 8px; vertical-align: middle;
+}
+.lean-banner .disclaimer { font-family: var(--mono); font-size: 11.5px; color: var(--stone); max-width: 280px; }
+
+.legend { display: flex; gap: 24px; margin-bottom: 20px; font-family: var(--mono); font-size: 13px; }
+.legend-item { display: flex; align-items: center; gap: 8px; }
+.legend-swatch { width: 14px; height: 14px; border-radius: 50%; }
+
+.chart-wrap {
+  border: 1px solid var(--stone-pale); border-radius: var(--radius); background: #fff;
+  padding: 28px 24px 18px; margin-bottom: 40px; overflow-x: auto;
+}
+.lens-chart { margin-bottom: 30px; }
+.lens-chart:last-child { margin-bottom: 0; }
+.lens-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.lens-head .icon { font-size: 16px; }
+.lens-head h4 { font-size: 14px; font-weight: 700; margin: 0; }
+.lens-head .q { font-family: var(--mono); font-size: 11.5px; color: var(--stone); }
+
+.track { position: relative; height: 86px; }
+.track-line { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--stone-pale); }
+.track-gates { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; justify-content: space-between; }
+.gate { position: relative; flex: 1; border-right: 1px dashed var(--stone-pale); }
+.gate:last-child { border-right: none; }
+.gate .gate-label {
+  position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10.5px; color: var(--stone);
+}
+.node {
+  position: absolute; width: 13px; height: 13px; border-radius: 50%; left: 50%; transform: translate(-50%, -50%);
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.08); cursor: default;
+}
+.node.conf-low { opacity: 0.55; }
+.connector { position: absolute; height: 2px; left: 0; right: 0; top: 50%; }
+.score-readout {
+  font-family: var(--mono); font-size: 10.5px; position: absolute; left: 50%; transform: translateX(-50%);
+  white-space: nowrap; color: var(--stone);
+}
+
+.path-note { font-size: 13px; color: #4a4640; margin-top: 8px; padding-left: 2px; border-left: 2px solid var(--stone-pale); padding-left: 10px; }
+.path-note + .path-note { margin-top: 6px; }
+.note-line { display: flex; gap: 8px; margin-top: 8px; font-size: 13px; }
+.note-line .tag { font-family: var(--mono); font-size: 10px; flex-shrink: 0; padding: 2px 6px; border-radius: 3px; font-weight: 700; }
+.note-line .tag.a { background: rgba(198,93,59,0.12); color: var(--line-a); }
+.note-line .tag.b { background: rgba(58,90,80,0.12); color: var(--line-b); }
+.note-line p { margin: 0; color: #4a4640; }
+
+/* ---------- Hidden considerations ---------- */
+.hidden-list { display: grid; gap: 14px; }
+.hidden-card {
+  border: 1px solid var(--stone-pale); border-radius: var(--radius); padding: 18px 20px; background: #fff;
+  border-left: 3px solid var(--ink);
+}
+.hidden-card h4 { font-size: 14.5px; margin: 0 0 6px; font-weight: 700; }
+.hidden-card p { font-size: 13.5px; color: #4a4640; margin: 0; }
+
+/* ---------- Narrative ---------- */
+.narrative-box {
+  border: 1px solid var(--stone-pale); border-radius: var(--radius); padding: 24px; background: var(--paper-dim);
+  white-space: pre-line; font-size: 15px; line-height: 1.65;
+}
+.narrative-source {
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--stone); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.narrative-source .pill { background: var(--ink); color: var(--paper); padding: 2px 8px; border-radius: 10px; }
+
+/* ---------- What-if ---------- */
+.whatif-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.whatif-btn {
+  font-family: var(--mono); font-size: 12.5px; padding: 9px 14px; border: 1px solid var(--stone-pale);
+  border-radius: var(--radius); background: #fff; color: var(--ink); transition: all 0.15s;
+}
+.whatif-btn:hover { border-color: var(--ink); background: var(--paper-dim); }
+.whatif-active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* ---------- Guardrails section ---------- */
+.guard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 820px) { .guard-grid { grid-template-columns: 1fr; } }
+.guard-card { border: 1px solid var(--stone-pale); border-radius: var(--radius); padding: 22px; background: #fff; }
+.guard-card .eyebrow { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--line-a); margin-bottom: 10px; }
+.guard-card h4 { font-size: 15.5px; margin: 0 0 8px; }
+.guard-card p { font-size: 13.5px; color: #4a4640; margin: 0; }
+
+footer { border-top: 1px solid var(--stone-pale); padding: 32px 0 48px; }
+footer .wrap { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+footer p { font-family: var(--mono); font-size: 11.5px; color: var(--stone); margin: 0; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="mark">[ ⌖ ]</span> Pathwise</div>
+    <div class="topbar-meta">Decision Instrument · v1.0</div>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-eyebrow"><span class="dot"></span> Built for USAII Global AI Hackathon 2026 — Undergrad Track, Challenge 3</div>
+    <h1>Plot the decision. <em>/* don't guess it */</em><br>See where each path actually leads.</h1>
+    <p class="lede">Grad school or a job. A startup or a steady salary. Pathwise models the tradeoffs across time instead of handing you a pros-and-cons list — and it always shows its uncertainty instead of faking confidence.</p>
+    <div class="hero-actions">
+      <button class="btn" onclick="document.getElementById('setup').scrollIntoView({behavior:'smooth'})">Start a comparison →</button>
+      <button class="btn ghost" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">How it reasons</button>
+    </div>
+  </div>
+</header>
+
+<section id="setup">
+  <div class="wrap">
+    <div class="steps">
+      <div class="step active" id="step-1"><span class="num">01</span>Choose paths</div>
+      <div class="step" id="step-2"><span class="num">02</span>Your context</div>
+      <div class="step" id="step-3"><span class="num">03</span>Weigh priorities</div>
+      <div class="step" id="step-4"><span class="num">04</span>Read the chart</div>
+    </div>
+
+    <div class="section-head">
+      <div class="section-tag">Step 01 — 03</div>
+      <h2>Set up your comparison</h2>
+      <div class="sub">Pick two real paths you're actually choosing between. Adjust the numbers to match your situation — the model reacts to them, it doesn't just illustrate a canned example.</div>
+    </div>
+
+    <div class="panel">
+      <div class="path-grid">
+        <div class="path-pick">
+          <label class="title">Path A</label>
+          <select id="pathA"></select>
+          <div id="paramsA"></div>
+        </div>
+        <div class="path-pick">
+          <label class="title">Path B</label>
+          <select id="pathB"></select>
+          <div id="paramsB"></div>
+        </div>
+      </div>
+
+      <div class="context-block">
+        <label class="title">Your situation, in your own words (optional, sharpens the read)</label>
+        <textarea id="freeText" placeholder="e.g. I'm 22, in Raipur, have about 8 months of savings, and my family expects financial stability soon..."></textarea>
+        <div class="toggle-row">
+          <button class="chip" id="chip-dependents" type="button">I support dependents</button>
+          <button class="chip" id="chip-location" type="button">I'm tied to one city</button>
+        </div>
+      </div>
+
+      <div class="weight-block">
+        <label class="title">What matters most to you right now? (weighs the lean, doesn't hide the rest)</label>
+        <div id="weightRows"></div>
+      </div>
+
+      <div class="run-row">
+        <button class="btn" id="runBtn">Run the comparison →</button>
+        <label class="api-key-toggle"><input type="checkbox" id="useApiToggle"> Use a live LLM for the explanation layer</label>
+      </div>
+      <div class="api-key-field" id="apiKeyField">
+        <input type="password" id="apiKeyInput" placeholder="Anthropic API key (kept in this browser tab only, never stored)">
+        <p>Optional. Without a key, Pathwise uses its built-in template narrator — the tradeoff numbers themselves are identical either way, since those come from the rules engine, not the LLM.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="results" id="results">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">Step 04</div>
+      <h2>The chart</h2>
+      <div class="sub">Each line is a path. Each gate is a horizon. Faded nodes mean the model is less sure — that fade is doing real work, not decoration.</div>
+    </div>
+
+    <div class="lean-banner" id="leanBanner"></div>
+
+    <div class="legend" id="legend"></div>
+
+    <div class="chart-wrap" id="chartWrap"></div>
+
+    <div class="whatif-row" id="whatifRow"></div>
+
+    <div class="section-head">
+      <div class="section-tag">Surfaced by the model</div>
+      <h2>What a pros/cons list would have missed</h2>
+      <div class="sub">These don't come from either path alone — they emerge from comparing your specific combination of paths and context.</div>
+    </div>
+    <div class="hidden-list" id="hiddenList"></div>
+
+    <div class="section-head" style="margin-top:40px;">
+      <div class="section-tag">Plain-language read</div>
+      <h2>What this actually means for you</h2>
+    </div>
+    <div class="narrative-source" id="narrativeSource"></div>
+    <div class="narrative-box" id="narrativeBox">Run a comparison above to generate this.</div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">Architecture</div>
+      <h2>Why this needs AI, and where it stops</h2>
+      <div class="sub">Two separate layers, on purpose — one mechanical, one linguistic. Neither pretends to be the other.</div>
+    </div>
+    <div class="guard-grid">
+      <div class="guard-card">
+        <div class="eyebrow">Layer 1 — Rules</div>
+        <h4>Tradeoff scoring</h4>
+        <p>Deterministic and auditable. Same inputs always produce the same scores. This is where the actual "reasoning structure" lives — four lenses × three time horizons, with confidence bands instead of fake precision. No hallucination risk because nothing here is generated.</p>
+      </div>
+      <div class="guard-card">
+        <div class="eyebrow">Layer 2 — Optional LLM</div>
+        <h4>Plain-language explanation</h4>
+        <p>The rules engine can't read "my parents really want me to play it safe" in your free-text box and adjust its tone. An LLM can. It only ever explains the numbers already computed — it's instructed never to override them, and the app works fully without it.</p>
+      </div>
+      <div class="guard-card">
+        <div class="eyebrow">Human-in-the-loop</div>
+        <h4>The decision itself</h4>
+        <p>Pathwise will never output a field called "recommendation." It computes a weighted <em>lean</em>, always shows the runner-up's strongest dimension, and the actual choice — the one with real consequences — stays entirely with you.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Pathwise — built for USAII's Global AI Hackathon 2026, Undergraduate Track, Challenge 3</p>
+    <p>Rules-based scoring · optional LLM narration · zero backend required</p>
+  </div>
+</footer>
+
+<script src="engine.js"></script>
+<script src="llm.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
